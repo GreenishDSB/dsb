@@ -27,11 +27,5 @@ def enforce_legalships_on_enterarena(p, action, arena):
 	if action == PA_ENTERARENA:
 		enforce_legalships(p, p.ship, SHIP_SPEC, p.freq, 69)
 
-def mm_attach(arena):
-	arena.cb_freqshipchange = reg_callback(CB_SHIPFREQCHANGE, enforce_legalships)
-	arena.cb_enterarena = reg_callback(CB_PLAYERACTION, enforce_legalships_on_enterarena)
-
-def mm_detach(arena):
-	for attr in ['cb_freqshipchange', 'cb_enterarena']:
-		try: delattr(arena, attr)
-		except: pass
+cb_freqshipchange = reg_callback(CB_SHIPFREQCHANGE, enforce_legalships)
+cb_enterarena = reg_callback(CB_PLAYERACTION, enforce_legalships_on_enterarena)
