@@ -1,0 +1,35 @@
+#!/bin/bash
+
+trap "exit 1" TERM
+export TOP_PID=$$
+
+quit()
+{
+    echo $1 1>&2
+    kill -s TERM $TOP_PID
+}
+add_symlink()
+{
+    $(ln -s $1 $2)
+}
+deploy()
+{
+    local src=$1
+    local bin=$2
+    local modules=$(ls $src)
+    for module in $modules; do
+        if [ -h "$bin/$module" ]; then
+            echo "removing existing symlink: $bin/$module"
+            rm $bin/$module
+        fi
+        add_symlink "$src/$module" "$bin/$module"
+        echo "added symlink $bin/$module -> $src/$module"
+    done
+}
+main()
+{
+    REPO_SRC_PATH="$HOME/dsb/src/pymod"
+    ASSS_BIN_PATH="$HOME/asss-src/bin"
+    deploy $REPO_SRC_PATH $ASSS_BIN_PATH
+}
+main
