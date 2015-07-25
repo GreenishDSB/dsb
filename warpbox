@@ -1,0 +1,86 @@
+from asss import *
+import random
+
+chat = get_interface(I_CHAT)
+game = get_interface(I_GAME) 
+mapdata = get_interface(I_MAPDATA)
+objs = get_interface(I_OBJECTS)
+
+def ds(cmd, params, p, targ):
+	if (p.position[6] == 160):
+		dowarp(targ, p)
+	else:
+		chat.SendMessage(p, "Command available from a safety tile.")
+	
+def setwarp(cmd, params, p, targ):
+	if params:
+		if params == "off":
+			targ.warp_usewarp = False
+		elif params == "on":
+			targ.warp_usewarp = True
+	else:
+		chat.SendMessage(p, "?setwarp on/off")
+
+def change_state(arena):
+	if arena.warp_usewarp != arena.warp_current_state:
+		if arena.warp_usewarp:
+			arena.warp_current_state = True
+			objs.Toggle(arena, 9989, 0)
+			arena.warp_tck = warp_tic(100, 100, arena)
+			chat.SendArenaMessage(arena, "Warpbox is enabled.")
+		else:
+			arena.warp_current_state = False
+			objs.Toggle(arena, 9989, 1)
+			arena.warp_tck = warp_tic(1000, 1000, arena)
+			chat.SendArenaMessage(arena, "Warpbox is disabled.")
+
+def warp_tic(initial, interval, arena):
+	def wb():
+		if arena.warp_usewarp != arena.warp_current_state:
+			change_state(arena)
+
+		if arena.warp_usewarp:
+			def for_each(p):
+				if p.arena == arena and p.ship in range(0,8):
+					warpbox_contains(arena, 
+						p.position[0] / 16, 
+						p.position[1] / 16, p)
+			for_each_player(for_each)
+	return set_timer(wb, initial, interval)
+
+def warpbox_contains(arena, x, y, p):
+	if arena.warp_rgn != None and mapdata.Contains(arena.warp_rgn, x, y):
+		dowarp(arena, p)
+			
+def dowarp(arena, p):
+	if arena.warp_usewarp:
+		sections = [0,1,2,3,4,5]
+		box = [ 
+			[387,402,286,302], 
+			[125,155,245,279], 
+			[165,200,261,271], 
+			[375,415,320,345], 
+			[365,425,251,256], 
+			[237,249,186,195]] 
+		random.shuffle(sections)
+		x = random.randrange(box[sections[0]][0], 
+			box[sections[0]][1], 1)
+		y = random.randrange(box[sections[0]][2], 
+			box[sections[0]][3], 1)
+		game.WarpTo(p, x, y)
+	else:
+		chat.SendMessage(p, "Command currently disabled.")
+
+def mm_attach(arena):
+	arena.warp_usewarp = True
+	arena.warp_current_state = True
+	arena.warp_rgn = mapdata.FindRegionByName(arena, 'warpbox')
+	arena.warp_tck = warp_tic(100, 100, arena)
+	
+def mm_detach(arena):
+	for attr in ['warp_usewarp','warp_rgn','warp_tck','warp_current_state']:
+		try: delattr(arena, attr)
+		except: pass
+
+cmd1 = add_command("setwarp", setwarp)
+cmd2 = add_command("ds", ds)
