@@ -14,3 +14,7 @@ def c_purple(cmd, param, p, a):
     chat.SendAnyMessage(arenaToPlayerList(a), MSG_FUSCHIA, 0, p, param)
 
 cmd1 = add_command("purple", c_purple)
+
+# note: add cmd_moo to conf/groupdef.dir/default so players have permission to
+#       use this command. After this is done, the server may or may not need 
+#       to be recycled.
