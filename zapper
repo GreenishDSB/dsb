@@ -1,0 +1,86 @@
+###################################################################
+# Module: zapper.py                                    By: Swatter
+###################################################################
+# Notes: Needs integrated into game/buy system.
+# Team mates can not see enemy zap animation.
+# Command ?help zap, ?zap, ?zap -d 
+# Possible usage: 
+# Requires zapper.lvz
+###################################################################
+
+import asss
+
+chat = asss.get_interface(asss.I_CHAT)
+objs = asss.get_interface(asss.I_OBJECTS)
+game = asss.get_interface(asss.I_GAME) 
+
+objectid = [13001,13002,13003]
+
+def inregion(p, coords):
+	r = 400
+	if (p.position[0]-coords[0]) ** 2  + (p.position[1]-coords[1]) ** 2  <= r ** 2 :
+		return True
+	return False
+
+def zapset(p, params):
+	if params == "-d":
+		objs.Toggle(p.arena, objectid[2], 0)
+		p.lzap = 0
+		return True
+
+	lzap = getattr(p, 'lzap', 0)
+	if lzap == 0 or (asss.current_ticks() - lzap)  > 1000:
+		p.lzap = asss.current_ticks()
+		objs.Toggle(p.arena, objectid[2], 1)
+		return False
+	else:
+		objs.Toggle(p.arena, objectid[2], 0)
+		p.lzap = 0
+		return True
+	
+def zapper(cmd, params, p, arena):
+# help text (?help zap)
+	"""\
+Module: <py> Zapper
+Type: Experimental Weapon (Targetable Electromagnetic Pulse).
+Effect: Temporary engine shut down of close by enemy ships.
+Commands: ?zap once brings up targeting display. ?zap a second time fires weapon. ?zap -d fires weapon without targeting display.
+Cost: ? tokens.
+"""
+	if p.arena != arena or p.ship == asss.SHIP_SPEC:
+		chat.SendMessage(p, "Command not available from the spectator frequency.")
+		return
+
+	if zapset(p, params):
+		coords = [0,0]
+		coords[0] = p.position[0]
+		coords[1] = p.position[1]
+		
+		friendlies = p.freq
+		players_inradius = [0]
+		
+		def each_player(p):
+			if p.arena == arena and p.ship != asss.SHIP_SPEC and p.freq != friendlies:
+			#if p.arena == arena and p.ship != asss.SHIP_SPEC:
+				if inregion(p, coords):
+					game.GivePrize(p, 14, 1)
+					objs.Toggle(p, objectid[1], 1)
+					players_inradius[0] = players_inradius[0] + 1
+					chat.SendSoundMessage(p, 39, "")
+		asss.for_each_player(each_player)
+		
+		if players_inradius[0] > 0:
+			sendzap(p)
+			#charge token(s)
+		else:
+			chat.SendMessage(p, "There are no players in range. You have not been charged. Cost: $0")
+
+def sendzap(p):
+	x = p.position[0] - 128
+	y = p.position[1] - 128
+	objs.Move(p.arena, objectid[0], x, y, 0, 0)
+	objs.Toggle(p.arena, objectid[0], 1)	
+	chat.SendSoundMessage(p, 39, "")
+		
+zap_cmd = asss.add_command("zap", zapper)
+zapX = zapY = 0
