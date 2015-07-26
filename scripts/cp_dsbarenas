@@ -1,0 +1,23 @@
+#!/bin/bash
+
+LVL_PATH=$HOME/uploads/lvlfiles
+CFG_PATH=$HOME/uploads/configs
+ZONE_ARENAS_PATH=$HOME/zone/arenas
+
+#lvlfiles=$(find $HOME/uploads/lvlfiles -name "*.lvl" -type f -printf "%f ")
+num_lvlfiles=0
+num_cfgfiles=0
+for lvlfile in $LVL_PATH/*.lvl; do
+    num_lvlfiles=$(expr $num_lvlfiles + 1)
+    lvlname=${lvlfile##*/}
+    lvlname=${lvlname%.lvl}
+    lvlcfg="${CFG_PATH}/${lvlname}.cfg"
+    if [ -e  $lvlcfg ]; then
+        num_cfgfiles=$(expr $num_cfgfiles + 1)
+    else
+        echo "$lvlcfg cannot be found"
+    fi
+done
+
+echo "num_lvlfiles="$num_lvlfiles
+echo "num_cfgfiles="$num_cfgfiles
