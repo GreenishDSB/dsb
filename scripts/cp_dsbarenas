@@ -9,13 +9,24 @@ num_lvlfiles=0
 num_cfgfiles=0
 for lvlfile in $LVL_PATH/*.lvl; do
     num_lvlfiles=$(expr $num_lvlfiles + 1)
-    lvlname=${lvlfile##*/}
-    lvlname=${lvlname%.lvl}
-    lvlcfg="${CFG_PATH}/${lvlname}.cfg"
+    arena=${lvlfile##*/}
+    arena=${arena%.lvl}
+    lvlfile=${LVL_PATH}/${arena}.lvl
+    lvlcfg=${CFG_PATH}/${arena}.cfg
+    mkdir ${ZONE_ARENAS_PATH}/${arena}
+    cp $lvlfile ${ZONE_ARENAS_PATH}/${arena}
     if [ -e  $lvlcfg ]; then
-        num_cfgfiles=$(expr $num_cfgfiles + 1)
+        cp $lvlcfg ${ZONE_ARENAS_PATH}/${arena}
+	echo "#include conf/svs/svs.conf
+#include ${arena}.cfg
+
+[ General ]
+Map=${arena}.lvl" > ${ZONE_ARENAS_PATH}/${arena}/arena.conf
     else
-        echo "$lvlcfg cannot be found"
+	echo "#include conf/svs/svs.conf
+
+[ General ]
+Map=${arena}.lvl" > ${ZONE_ARENAS_PATH}/${arena}/arena.conf
     fi
 done
 
