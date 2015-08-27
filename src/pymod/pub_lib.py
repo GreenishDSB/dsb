@@ -79,6 +79,21 @@ safezone_map = {
 	9 : ['point', 570, 934]};
 
 #------------------------------------------------------------------
+# Returns pointer to player or None
+#------------------------------------------------------------------
+
+def getP(name):
+	player = [0]
+	def each_player(p):
+		if str(p.name.lower()) == str(name.lower()):
+			player[0] = p
+			return player[0]
+	asss.for_each_player(each_player)
+	if isinstance(player[0], asss.PlayerType):
+		return player[0]
+	return None
+	
+#------------------------------------------------------------------
 
 def mm_attach(arena):
 	arena.lib_devmode = asss.add_command("devmode", devmode, arena)
