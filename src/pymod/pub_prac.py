@@ -28,7 +28,7 @@ def event_setup(arena):
 	if not hasattr(arena, event):
 		setattr(arena, event, \
 			events(event, eventname, \
-			eventfreqs, gameID))
+			eventfreqs, gameID, arena))
 			
 def setstat(p, stat, amount):
 	if hasattr(p, 'stats'):
@@ -83,7 +83,69 @@ def controls(cmd, params, p, arena):
 		event_setup(arena)
 			
 	elif hasattr(arena, event):
-		ae = getattr(arena, event)
+		if params:
+		
+			params = params.lower()
+			
+			ae = getattr(arena, event)
+			ev = ae.event
+			evc = ev.capitalize()
+			en = ae.eventname
+			gi = ae.gameId
+			gs = ae.gamestate
+			ef = ae.eventfreqs
+			
+			if params == 'setup':
+				if gs in ['idle']:
+					pass
+			elif params == 'start':
+				if gs in ['pregame']:
+					pass
+			elif params == 'pause':
+				if gs in ['running']:
+					pass
+			elif params == 'resume':
+				if gs in ['paused']:
+					pass
+			elif params == 'end':
+				if gs in ['running', 'paused', 'postgame']:
+					pass
+			elif params == 'endsave':
+				if gs in ['postgame']:
+					pass
+			elif params == 'kill':
+				if gs in ['idle', 'pregame', 'running', 'paused', 'postgame']:
+					pass
+				
+		else: showOptions(p)
+		
+def eventSetup():
+	pass
+
+def eventStart():
+	pass
+
+def eventPause():
+	pass
+
+def eventResume():
+	pass
+	
+def eventEnd():
+	pass
+	
+def eventEndSave():
+	pass
+	
+def eventKill():
+	ae = getattr(arena, event)
+	ev = ae.event
+	ev.kill()
+	
+def showOptions(p):
+
+	if hasattr(p.arena, event):
+		ae = getattr(p.arena, event)
 		ev = ae.event
 		evc = ev.capitalize()
 		en = ae.eventname
@@ -91,52 +153,19 @@ def controls(cmd, params, p, arena):
 		gs = ae.gamestate
 		ef = ae.eventfreqs
 		
-		if not params:
-			chat.SendMessage(p, '= = = = = = = = = = = = = = = = = = = = = = = = = =')
-			str = 'Event: {}'.format(evc)
-			chat.SendMessage(p, 'Event Name: {0:19} {1:>19}'.format(en, str))
-			str = 'Freqs: {}'.format(ef)
-			chat.SendMessage(p, 'Game State: {0:19} {1:>19}'.format(gs, str))
-			chat.SendMessage(p, '= = = = = = = = = = = = = = = = = = = = = = = = = =')
-			
-			# idle, pregame, running, paused, postgame
-			
-			if gs == 'idle': chat.SendMessage(p, 'Command options: ?{0} <spam>, ?{0} <setup>'.format(ev))
-			elif gs == 'pregame': chat.SendMessage(p, 'Command options: ?{0} <spam>, ?{0} <start>'.format(ev))
-			elif gs == 'running': pass
-			elif gs == 'paused': pass
-			elif gs == 'postgame': pass
-			
-		else:
-			params = params.lower()
-			
-			if params == 'kill':
-				ae.kill()
-				chat.SendMessage(p, 'kill() called. ')
-				return
-				
-			# setup, start, pause, resume, end, endsave, kill
-			
-			if gs == 'idle':
-				if params == 'setup':
-					ae.pregame()
-					chat.SendMessage(p, 'pregame() called.')
-				elif params == 'spam':
-					chat.SendArenaMessage(arena, 'Players needed for {}, use: ?join {}'.format(evc,ev))
-					# send dsb chat ch
-				else:
-					chat.SendMessage(p, 'Please choose from the options.')
-
-			elif gs == 'pregame':
-				if params == 'start':
-					ae.start()
-					chat.SendMessage(p, 'start() called.')
-				elif params == 'spam':
-					chat.SendArenaMessage(arena, 'Players still needed for {}, use: ?join {}'.format(evc,ev))
-					# send dsb chat ch
-				else:
-					chat.SendMessage(p, 'Please choose from the options.')
-			
-			elif gs == 'running': pass
-			elif gs == 'paused': pass
-			elif gs == 'postgame': pass
+		chat.SendMessage(p, '= = = = = = = = = = = = = = = = = = = = = = = = = =')
+		str = 'Event: {}'.format(evc)
+		chat.SendMessage(p, 'Event Name: {0:19} {1:>19}'.format(en, str))
+		str = 'Freqs: {}'.format(ef)
+		chat.SendMessage(p, 'Game State: {0:19} {1:>19}'.format(gs, str))
+		chat.SendMessage(p, '= = = = = = = = = = = = = = = = = = = = = = = = = =')
+		
+		# setup, start, pause, resume, end, endsave, kill
+		# idle, pregame, running, paused, postgame
+		
+		if gs == 'idle': chat.SendMessage(p, 'Command options: ?{0} <spam>, ?{0} <setup>'.format(ev))
+		elif gs == 'pregame': chat.SendMessage(p, 'Command options: ?{0} <spam>, ?{0} <start>'.format(ev))
+		elif gs == 'running': chat.SendMessage(p, 'Command options: ?{0} <pause>, ?{0} <kill>'.format(ev))
+		elif gs == 'paused': chat.SendMessage(p, 'Command options: ?{0} <resume>, ?{0} <kill>'.format(ev))
+		elif gs == 'postgame': chat.SendMessage(p, 'Command options: ?{0} <end>, ?{0} <endsave>'.format(ev))
+	else: chat.SendMessage(p, '= = = = = = = = = = = = = = = = = = = = = = = = = =')
