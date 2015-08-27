@@ -4,7 +4,7 @@
 ###################################################################
 # Notes: 
 # 
-# Everything below #--- needs attention.
+# 
 # 
 # 
 ###################################################################
@@ -12,26 +12,26 @@
 from pub_lib import *
 
 class events:
-	def __init__(self, event, eventname, eventfreqs, gameId):
+	def __init__(self, event, eventname, eventfreqs, gameId, arena):
+		self.arena = arena
 		self.event = event
 		self.eventname = eventname
 		self.eventfreqs = eventfreqs
 		self.gameId = gameId
 		self.gamestate = 'idle'
-		self.captains = []
-		self.players = []
 		
 	def pregame(self):
 		self.gamestate = 'pregame'
 		
 	def start(self):
+		resetEventPlayerStats(self.arena, self.event)
 		self.gamestate = 'running'
 		self.gameId += 1
 		
 	def kill(self):
 		self.gamestate = 'idle'
-		
-		
+		resetEventPlayerStats(self.arena, self.event)
+
 class stats:
 	def __init__(self, name, freq, event, gameId):
 		self.name = name
@@ -84,9 +84,118 @@ class stats:
 		totals = self.killpoints + self.flagpoints + self.ballpoints
 		return totals
 
-def mm_attach(arena):
+def newPlayerStats(p):
+	event = getPEvent(p.freq)
+	ae = getattr(p.arena, event, None)
+	gameId = 0 if not ae else ae.gameId	
+	p.stats = stats(p.name, p.freq, event, gameId)
+		
+def resetEventPlayerStats(arena, event):
+	for _p in arena.stats_saves:
+		if _p['event'] == event:
+			arena.stats_saves.remove(_p)	
+	def each_player(p):
+		if hasattr(p, 'stats'):
+			if p.stats.event == event:
+				delattr(p, 'stats')
+				newPlayerStats(p)
+	asss.for_each_player(each_player)
 
-	arena.stats_saved_stats = []
+def movePlayerStatsToSaves(p, trace):
+	attrs = vars(p.stats)
+	if hasattr(p, 'stats'):
+		if p.stats.totals() > 0:
+			p.arena.stats_saves.append(attrs)
+			delattr(p, 'stats')
+			dev(p, '%s [ PLAYER STAT SHEET MOVED TO SAVES ]' %trace)
+		else:
+			dev(p, '%s [ PLAYER STAT SHEET BLANK: DELETED ]' %trace)
+			delattr(p, 'stats')
+	else:
+		dev(p, '%s [ ERROR PLAYER HAD NO STAT SHEET ]' %trace)
+
+def restoreSavedStatsOrMakeNew(p, trace):
+
+	event = getPEvent(p.freq)
+	ae = getattr(p.arena, event, None)
+	
+	gameId = 0 if not ae else ae.gameId
+		
+	for item in p.arena.stats_saves:
+		if item['name'] == p.name and \
+			item['event'] == event and \
+			item['gameId'] == gameId and \
+			item['freq'] == p.freq:
+			newPlayerStats(p)
+
+			for stat, val in item.iteritems():
+				setattr(p.stats, stat, val)
+
+			p.arena.stats_saves.remove(item)
+
+			dev(p, '%s [ SAVED STATS RESTORED ]' %trace)
+			return
+
+	dev(p, '%s [ SAVED STATS NOT FOUND - CREATED NEW STATS ]' %trace)
+
+	if event != 'None':
+		newPlayerStats(p)
+
+def mystats(cmd, params, p, arena):
+	found = True
+	if params:
+		_p = getP(params)
+		if not _p:
+			found = False
+	else: _p = p
+	if found:
+		chat.SendMessage(p, 
+		'{}({}), KD({}:{}:{}), Tk({}:{}), Flag({}:{}:{}), Ball({}:{}:{}:{}), Evt({}:{}), Total = {}'
+		.format(
+			_p.stats.name,
+			_p.stats.freq,
+			_p.stats.kills,
+			_p.stats.deaths,
+			_p.stats.killpoints,
+			_p.stats.tks[0],
+			_p.stats.tks[1],
+			_p.stats.flagtouches,
+			_p.stats.bellflags,
+			_p.stats.flagpoints,
+			_p.stats.balltouches,
+			_p.stats.balltime,
+			_p.stats.ballgoals,
+			_p.stats.ballpoints,
+			_p.stats.event,
+			_p.stats.gameId,
+			_p.stats.totals()))
+	else: chat.SendMessage(p, 'Player not found. ?mystats or ?mystats <name>')
+		
+def stats_playeraction(p, action, arena):
+	if action == asss.PA_ENTERGAME:
+		if p.freq != p.arena.specfreq:
+			restoreSavedStatsOrMakeNew(p, '[ PLAYER ENTERED GAME FROM LOGIN ]')
+	elif action == asss.PA_LEAVEARENA:
+		if p.freq != p.arena.specfreq:
+			movePlayerStatsToSaves(p, '[ PLAYER LEFT GAME FROM EXIT ARENA ]')
+
+def stats_shipfreqchange(p, newship, oldship, newfreq, oldfreq):
+	if oldship == asss.SHIP_SPEC \
+		and oldfreq == p.arena.specfreq \
+		and newship != asss.SHIP_SPEC \
+		and newfreq != p.arena.specfreq:
+		restoreSavedStatsOrMakeNew(p, '[ PLAYER ENTERED GAME FROM SPEC ]')
+	elif newship == asss.SHIP_SPEC \
+		and newfreq == p.arena.specfreq \
+		and oldship != asss.SHIP_SPEC \
+		and oldfreq != p.arena.specfreq:
+		movePlayerStatsToSaves(p, '[ PLAYER ENTER SPEC FROM GAME ]')
+	elif newfreq != oldfreq:
+		movePlayerStatsToSaves(p, '[ PLAYER SWITCHED FREQS ]')
+		restoreSavedStatsOrMakeNew(p, '[ PLAYER SWITCHED FREQS ]')
+
+def mm_attach(arena):
+	arena.stats_saves = []
 	
 	arena.stats_mystats = \
 		asss.add_command("mystats", \
@@ -106,195 +215,27 @@ def mm_attach(arena):
 def mm_detach(arena):
 	for attr in [
 		'stats_mystats',
-		'stats_saved_stats',
+		'stats_saves',
 		'stats_playeraction',
 		'stats_shipfreqchange']:
 		try: delattr(arena, attr)
 		except: pass
-		
-def search_for_saved_stats(p, trace):
-
-	event = getPEvent(p.freq)
-	ae = getattr(p.arena, event, None)
-	
-	gameId = 0 if not ae else ae.gameId
-		
-	for item in p.arena.stats_saved_stats:
-		if item['name'] == p.name and \
-			item['event'] == event and \
-			item['gameId'] == gameId and \
-			item['freq'] == p.freq:
-			p.stats = stats(p.name, p.freq, event, gameId)
-			
-			for stat, val in item.iteritems():
-				setattr(p.stats, stat, val)
-				
-			p.arena.stats_saved_stats.remove(item)
-			
-			dev(p, '%s [ SAVED STATS RESTORED ]' %trace)
-			return
-			
-	dev(p, '%s [ SAVED STATS NOT FOUND - CREATED NEW STATS ]' %trace)
-	
-	if event != 'None':
-		p.stats = stats(p.name, p.freq, event, gameId)
-
-def save_stats(p, trace):
-	attrs = vars(p.stats)
-	if hasattr(p, 'stats'):
-		if p.stats.flagtouches > 1:
-			p.arena.stats_saved_stats.append(attrs)
-			delattr(p, 'stats')
-			dev(p, '%s [ PLAYER STAT SHEET MOVED TO SAVES ]' %trace)
-		else:
-			dev(p, '%s [ PLAYER STAT SHEET BLANK: DELETED ]' %trace)
-			delattr(p, 'stats')
-	else:
-		dev(p, '%s [ ERROR PLAYER HAD NO STAT SHEET ]' %trace)
-
-def stats_playeraction(p, action, arena):
-	if action == asss.PA_ENTERGAME:
-		if p.freq != p.arena.specfreq:
-			search_for_saved_stats(p, '[ PLAYER ENTERED GAME FROM LOGIN ]')
-	elif action == asss.PA_LEAVEARENA:
-		if p.freq != p.arena.specfreq:
-			save_stats(p, '[ PLAYER LEFT GAME FROM EXIT ARENA ]')
-
-def stats_shipfreqchange(p, newship, oldship, newfreq, oldfreq):
-	if oldship == asss.SHIP_SPEC \
-		and oldfreq == p.arena.specfreq \
-		and newship != asss.SHIP_SPEC \
-		and newfreq != p.arena.specfreq:
-		search_for_saved_stats(p, '[ PLAYER ENTERED GAME FROM SPEC ]')
-	elif newship == asss.SHIP_SPEC \
-		and newfreq == p.arena.specfreq \
-		and oldship != asss.SHIP_SPEC \
-		and oldfreq != p.arena.specfreq:
-		save_stats(p, '[ PLAYER ENTER SPEC FROM GAME ]')
-	elif newfreq != oldfreq:
-		save_stats(p, '[ PLAYER SWITCHED FREQS ]')
-		search_for_saved_stats(p, '[ PLAYER SWITCHED FREQS ]')
 
 #---
-		
-def send_saved_stats(p):
-	found = 0
-	for stat in p.arena.stats_saved_stats:
-		if stat['name'] == p.name:
-		
-			found = 1
 
-			chat.SendMessage(p, 'Saved Stats')
-			chat.SendMessage(p, '= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =')
-			
-			chat.SendMessage(p, ' PLAYER : %-19s : Kills: %-3s  Deaths: %-3s                    Kill Points : %4s  '% \
-				(stat['name'],
-				stat['kills'],
-				stat['deaths'],
-				stat['killpoints']))
-				
-			chat.SendMessage(p, '  EVENT : %-19s : Flag Touches: %-4s                         Flag Points : %4s  '% \
-				(stat['event'],
-				stat['flagtouches'],
-				stat['flagpoints']))
-				
-			chat.SendMessage(p, '   FREQ : %-19s : Ball Grabs: %-2s   Time: %-4s  Goals: %-2s     Ball Points : %4s  '% \
-				(stat['freq'],
-				stat['balltouches'],
-				stat['balltime'],
-				stat['ballgoals'],
-				stat['ballpoints']))
-				
-			chat.SendMessage(p, ' GameID : %-19s :                                                 Totals : %4s'% \
-				(stat['gameId'],
-				stat['killpoints'] + stat['flagpoints'] + stat['ballpoints']))
-				
-			chat.SendMessage(p, '= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =')
-	
-	if found == 0:
-		chat.SendMessage(p, 'Saved stats not found.')
-	
-		
-def send_stats(p, i):
-	if hasattr(i, 'stats'):
-		chat.SendMessage(p, '= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =')
-		
-		chat.SendMessage(p, ' PLAYER : %-19s : Kills: %-3s  Deaths: %-3s                    Kill Points : %4s  '% \
-			(i.stats.name,
-			i.stats.kills,
-			i.stats.deaths,
-			i.stats.killpoints))
-			
-		chat.SendMessage(p, '  EVENT : %-19s : Flag Touches: %-4s                         Flag Points : %4s  '% \
-			(i.stats.event,
-			i.stats.flagtouches,
-			i.stats.flagpoints))
-			
-		chat.SendMessage(p, '   FREQ : %-19s : Ball Grabs: %-2s   Time: %-4s  Goals: %-2s     Ball Points : %4s  '% \
-			(i.stats.freq,
-			i.stats.balltouches,
-			i.stats.balltime,
-			i.stats.ballgoals,
-			i.stats.ballpoints))
-			
-		chat.SendMessage(p, ' GameID : %-19s :                                                 Totals : %4s'% \
-			(i.stats.gameId,
-			i.stats.totals()))
-			
-		chat.SendMessage(p, '= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =')
-	else: chat.SendMessage(p, 'Current stats not found. Try: ?mystats <saves>')
-
-def mystats(cmd, params, p, arena):
-# help text (?help mystats)
-	"""\
-Module: <py> pub_stats
-Params: Saves, <Name>, <Event>
-"""
-	if not params:
-		send_stats(p, p)
-	elif params.lower() == 'all':
-		player = [p]
-		def findplayer(p):
-			send_stats(player[0], p)
-		asss.for_each_player(findplayer)
-		
-	elif params.capitalize() in EventMap.values():
-		player = [p]
-		found = [False]
-		def findplayer(p):
-			if hasattr(p, 'stats'):
-				if p.stats.event.lower() == params.lower():
-					found[0] = [True]
-					send_stats(player[0], p)
-		asss.for_each_player(findplayer)
-		if not found[0]:
-			chat.SendMessage(p, '%s event has no current stats.' %params.capitalize())
-	elif params and params == 'saves':
-		send_saved_stats(p)
-	elif params:
-		player = [p]
-		found = [False]
-		hasstats = [False]
-		def findplayer(p):
-			if p.name.lower() == params.lower():
-				found[0] = [True]
-				if hasattr(p, 'stats'):
-					hasstats[0] = [True]
-					send_stats(player[0], p)
-		asss.for_each_player(findplayer)
-		
-		if not found[0]:
-			chat.SendMessage(p, 'Player: %s was not found. Use: ?mystats %stickname' %(params,'%'))
-		elif found[0] and not hasstats[0]:
-			chat.SendMessage(p, 'Player: %s has no current stats, try checking. ?savedstats <name>' %params)
-
-def allstats(p):
-	if not params:
-		chat.SendMessage(p, '?allstats <everything> - Displays stats for all events.')
-		chat.SendMessage(p, '?allstats <eventname> - Displays stats for <eventname>.')
-	elif params.lower() == 'everything':
-		pass
-
-	elif params.lower() == 'everything':
-		pass
-		
+def eventStats(p, event):
+	for _p in p.arena.stats_saves:
+		if _p['event'] == event:
+			str = ''
+			for stat, val in _p.iteritems():
+				str += '{}:{}, '.format(stat, val)
+			chat.SendMessage(p, '{}'.format(str))
+	def each_player(p):
+		if hasattr(p, 'stats'):
+			if p.stats.event == event:
+				attrs = vars(p.stats)	
+				str = ''
+				for stat, val in attrs.iteritems():
+					str += '{}:{}, '.format(stat, val)
+				chat.SendMessage(p, '{}'.format(str))
+	asss.for_each_player(each_player)
