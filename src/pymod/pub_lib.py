@@ -63,7 +63,7 @@ EventMap = {
 
 def getPEvent(freq):
 	""" Returns player event based on freq number.
-	defaults to event pub at allow for use of private freqs."""
+	defaults to event pub to allow for use of private freqs."""
 	return EventMap.setdefault(freq, 'pub')
 
 def innkz(x, y):
