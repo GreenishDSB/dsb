@@ -13,17 +13,20 @@ import asss
 
 chat = asss.get_interface(asss.I_CHAT)
 game = asss.get_interface(asss.I_GAME)
+capman = asss.get_interface(asss.I_CAPMAN)
 lm = asss.get_interface(asss.I_LOGMAN)
 
-#-----------------------------------------------------------------
-# dev is a simple way to output messages during developments, 
-# trace events etc. targ can be either p or arena. You must be 
-# logged in as mod+ and have p.devmode set to True. You can use 
-# the ?devmode to toggle viewing, or as i do add ?devmode on your 
-# client -> profile -> auto (underneath chats).
-#-----------------------------------------------------------------
+#freqman = asss.get_interface(asss.I_FREQMAN)
+#objs = asss.get_interface(asss.I_OBJECTS) not found..
 
 def dev(targ, msg):
+
+	"""Provides chat function for development. Must be Mod+ to view.
+	
+	On client-> profile-> auto (underneath chats), or ?devmode in game. 
+	
+	Targ can be either p or arena."""
+
 	list = asss.PlayerListType()
 	if isinstance(targ, asss.PlayerType):
 		if getattr(targ, 'devmode', 'False'):
@@ -37,38 +40,45 @@ def dev(targ, msg):
 	chat.SendAnyMessage(list, asss.MSG_MODCHAT, 0, None, msg)
 
 def devmode(cmd, params, p, arena):
+	""" Command to toggle ?demode """
 	if not hasattr(p, 'devmode'): p.devmode = True
 	elif p.devmode: p.devmode = False
 	else: p.devmode = True
-
-#------------------------------------------------------------------
+	
 # Freq to event map
-#------------------------------------------------------------------
 
 EventMap = {
+	
 	0 : 'pub',
 	1 : 'pub',
 	2 : 'prac',
 	3 : 'prac',
 	4 : 'bab',
 	5 : 'bab',	
-	6 : 'soc',
-	7 : 'soc',
+	6 : 'soccer',
+	7 : 'soccer',
 	8 : 'duel',
 	9 : 'duel',
 	69: 'spec'};
 
 def getPEvent(freq):
+	""" Returns player event based on freq number.
+	defaults to event pub at allow for use of private freqs."""
 	return EventMap.setdefault(freq, 'pub')
-	
-#------------------------------------------------------------------
-# Freq safezone map
-# point - [x, y] single point like duel 
+
+def innkz(x, y):
+	""" Primary safezone coords """
+	if x > 7888 and x < 8496:
+		if y > 7888 and y < 8480:
+			return True
+	return False
+
+# Maps freq number to proper event safezone.
+# point - [x, y] single point like duel.
 # box - [x, x, y, y] random placement in side box.
 # radius [x, y, radius] random placement in side circle.
-#------------------------------------------------------------------
-
-safezone_map = {
+	
+map_to_safezone = {
 	2 : ['box', 215, 237, 600, 622],
 	3 : ['box', 215, 237, 600, 622],
 	4 : ['radius', 847, 817, 12],
@@ -78,22 +88,17 @@ safezone_map = {
 	8 : ['point', 461, 830],
 	9 : ['point', 570, 934]};
 
-#------------------------------------------------------------------
-# Returns pointer to player or None
-#------------------------------------------------------------------
-
 def getP(name):
-	player = [0]
+	""" Returns pointer to player or None """
+	_p = [0]
 	def each_player(p):
 		if str(p.name.lower()) == str(name.lower()):
-			player[0] = p
-			return player[0]
+			_p[0] = p
+			return _p[0]
 	asss.for_each_player(each_player)
-	if isinstance(player[0], asss.PlayerType):
-		return player[0]
+	if isinstance(_p[0], asss.PlayerType):
+		return _p[0]
 	return None
-	
-#------------------------------------------------------------------
 
 def mm_attach(arena):
 	arena.lib_devmode = asss.add_command("devmode", devmode, arena)
