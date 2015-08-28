@@ -115,7 +115,7 @@ def controls(cmd, params, p, arena):
 					pass
 			elif params == 'kill':
 				if gs in ['idle', 'pregame', 'running', 'paused', 'postgame']:
-					pass
+					eventKill(arena)
 				
 		else: showOptions(p)
 		
@@ -137,10 +137,9 @@ def eventEnd():
 def eventEndSave():
 	pass
 	
-def eventKill():
+def eventKill(arena):
 	ae = getattr(arena, event)
-	ev = ae.event
-	ev.kill()
+	ae.kill()
 	
 def showOptions(p):
 
