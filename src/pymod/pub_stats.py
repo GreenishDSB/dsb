@@ -31,6 +31,14 @@ class events:
 	def kill(self):
 		self.gamestate = 'idle'
 		resetEventPlayerStats(self.arena, self.event)
+		#chat.SendArenaMessage(self.arena, '{} terminated.'.format(self.eventname))
+		
+		def each_player(p):
+			if hasattr(p, 'stats'):
+				if p.stats.event == self.event:
+					chat.SendMessage(p, '{} terminated.'.format(self.eventname))
+					game.SetShipAndFreq(p, 8, 69)
+		asss.for_each_player(each_player)
 
 class stats:
 	def __init__(self, name, freq, event, gameId):
@@ -171,7 +179,7 @@ def mystats(cmd, params, p, arena):
 			_p.stats.totals()))
 	else: chat.SendMessage(p, 'Player not found. ?mystats or ?mystats <name>')
 		
-def stats_playeraction(p, action, arena):
+def CB_PLAYERACTION(p, action, arena):
 	if action == asss.PA_ENTERGAME:
 		if p.freq != p.arena.specfreq:
 			restoreSavedStatsOrMakeNew(p, '[ PLAYER ENTERED GAME FROM LOGIN ]')
@@ -179,7 +187,7 @@ def stats_playeraction(p, action, arena):
 		if p.freq != p.arena.specfreq:
 			movePlayerStatsToSaves(p, '[ PLAYER LEFT GAME FROM EXIT ARENA ]')
 
-def stats_shipfreqchange(p, newship, oldship, newfreq, oldfreq):
+def CB_SHIPFREQCHANGE(p, newship, oldship, newfreq, oldfreq):
 	if oldship == asss.SHIP_SPEC \
 		and oldfreq == p.arena.specfreq \
 		and newship != asss.SHIP_SPEC \
@@ -194,6 +202,10 @@ def stats_shipfreqchange(p, newship, oldship, newfreq, oldfreq):
 		movePlayerStatsToSaves(p, '[ PLAYER SWITCHED FREQS ]')
 		restoreSavedStatsOrMakeNew(p, '[ PLAYER SWITCHED FREQS ]')
 
+def CB_PRESHIPFREQCHANGE(p, newship, oldship, newfreq, oldfreq):
+	pass
+	#dev(p, 'newship: {}, oldship: {}, newfreq: {}, oldfreq: {}'.format(newship, oldship, newfreq, oldfreq))
+		
 def mm_attach(arena):
 	arena.stats_saves = []
 	
@@ -202,22 +214,33 @@ def mm_attach(arena):
 		mystats, \
 		arena)
 		
-	arena.stats_playeraction = \
+	arena.stats_CB_PLAYERACTION = \
 		asss.reg_callback(asss.CB_PLAYERACTION, \
-		stats_playeraction, \
+		CB_PLAYERACTION, \
 		arena)
 		
-	arena.stats_shipfreqchange = \
+	arena.stats_CB_SHIPFREQCHANGE = \
 		asss.reg_callback(asss.CB_SHIPFREQCHANGE, \
-		stats_shipfreqchange, \
+		CB_SHIPFREQCHANGE, \
 		arena)
-	
+
+	arena.stats_CB_PRESHIPFREQCHANGE = \
+		asss.reg_callback(asss.CB_PRESHIPFREQCHANGE, \
+		CB_PRESHIPFREQCHANGE, \
+		arena)
+		
+# CB_TIMESUP
+# CB_PPK
+
+
+		
 def mm_detach(arena):
 	for attr in [
 		'stats_mystats',
 		'stats_saves',
-		'stats_playeraction',
-		'stats_shipfreqchange']:
+		'stats_CB_PLAYERACTION',
+		'stats_CB_SHIPFREQCHANGE',
+		'stats_CB_PRESHIPFREQCHANGE']:
 		try: delattr(arena, attr)
 		except: pass
 
@@ -239,3 +262,4 @@ def eventStats(p, event):
 					str += '{}:{}, '.format(stat, val)
 				chat.SendMessage(p, '{}'.format(str))
 	asss.for_each_player(each_player)
+	
