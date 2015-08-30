@@ -59,9 +59,10 @@ EventMap = {
 	7 : 'soccer',
 	8 : 'duel',
 	9 : 'duel',
+	101 : None,
 	69: 'spec'};
 
-def getPEvent(freq):
+def get_event(freq):
 	""" Returns player event based on freq number.
 	defaults to event pub to allow for use of private freqs."""
 	return EventMap.setdefault(freq, 'pub')
